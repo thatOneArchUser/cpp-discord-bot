@@ -32,7 +32,7 @@ vcpkg integrate install
 ```
 
 ## Setup
-just put your user id and bot token in settings.json
+just put your user id and bot token in settings.json (no quotes for the id)
 
 ## Build
 g++ needs to be installed
