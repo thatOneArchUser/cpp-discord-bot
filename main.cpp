@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <cmath>
 #include <sys/stat.h>
-#include <string>
 
 #define BASE 10
 
