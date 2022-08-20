@@ -22,7 +22,7 @@ ifstream f("settings.json");
 const json settings = json::parse(f);
 const qword id = settings["id"];
 
-bool isNumber(const string &s)
+inline bool isNumber(const string &s)
 {
     string::const_iterator it = s.begin();
     while (it != s.end() && std::isdigit(*it)) ++it;
