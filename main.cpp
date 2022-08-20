@@ -7,6 +7,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <cmath>
+#include <sys/stat.h>
+#include <string>
 
 #define BASE 10
 
@@ -28,6 +30,10 @@ bool isNumber(const string &s)
     return !s.empty() && it == s.end();
 }
 
+inline bool fileExists(const string &name) {
+    struct stat buff;
+    return (stat(name.c_str(), &buff) == 0);
+}
 
 int main() {
     dpp::cluster bot(settings["token"], dpp::i_default_intents | dpp::i_message_content);
@@ -37,6 +43,15 @@ int main() {
     dpp::commandhandler command_handler(&bot);
     command_handler.add_prefix(".");
     
+    string files[] = {"money.json", "leveling.json"};
+    for (string i : files) {
+        if (!fileExists(i)) {
+            ofstream f(i);
+            f << "{ }";
+            f.close();
+        }
+    }
+
     bot.on_message_create([&bot](const dpp::message_create_t &event) {
         if (!event.msg.author.is_bot()) {
             ifstream f("./leveling.json");
