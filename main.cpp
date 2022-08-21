@@ -69,7 +69,7 @@ int main() {
     dpp::commandhandler command_handler(&bot);
     command_handler.add_prefix(".");
     
-    string files[] = {"money.json", "leveling.json"};
+    string files[] = {"money.json", "leveling.json", "cooldowns.json"};
     for (string i : files) {
         if (!fileExists(i)) {
             ofstream f(i);
