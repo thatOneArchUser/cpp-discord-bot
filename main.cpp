@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <cmath>
 #include <sys/stat.h>
+#include <chrono>
 
 #define BASE 10
 
 using namespace std;
+using namespace chrono;
 using json = nlohmann::json;
 
 typedef unsigned long dword;
@@ -22,6 +24,31 @@ ifstream f("settings.json");
 const json settings = json::parse(f);
 const qword id = settings["id"];
 
+void cooldown(qword uid, string command, qword ms) {
+    ifstream f("./cooldowns.json");
+    json cl = json::parse(f);
+    qword m = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    json sub;
+    if (!cl.contains(to_string(uid))) {
+        sub = json::object();
+    } else {
+        sub = cl[to_string(uid)].get<json::object_t>();
+    }
+    sub[command] = m+ms;
+    cl[to_string(uid)] = sub;
+    ofstream file("./cooldowns.json");
+    file << cl;
+} 
+
+qword getcooldown(qword uid, string command) {
+    ifstream f("./cooldowns.json");
+    json cl = json::parse(f);
+    if (cl[to_string(uid)].contains(command)) {
+        return cl[to_string(uid)][command].get<qword>();
+    }
+    return 0;
+}
+
 inline bool isNumber(const string &s)
 {
     string::const_iterator it = s.begin();
@@ -31,7 +58,7 @@ inline bool isNumber(const string &s)
 
 inline bool fileExists(const string &name) {
     struct stat buff;
-    return (stat(name.c_str(), &buff) == 0);
+    return stat(name.c_str(), &buff) == 0;
 }
 
 int main() {
@@ -80,6 +107,10 @@ int main() {
             }
 
             if (event.msg.content == ".beg") {
+                if (getcooldown(event.msg.author.id, "beg") > duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()) {
+                    bot.message_create(dpp::message(event.msg.channel_id, "This command is on cooldown"));
+                    return;
+                }
                 ifstream f("./money.json");
                 json data = json::parse(f);
                 srand(time(NULL));
@@ -91,7 +122,9 @@ int main() {
                 ofstream file("./money.json");
                 file << data;
                 file.close();
+                cooldown(event.msg.author.id, "beg", 40000);
                 bot.message_create(dpp::message(event.msg.channel_id, "You earned " + to_string(money) + " coins"));
+                
             }
         }
     });
@@ -229,6 +262,45 @@ int main() {
                 ofstream file("./money.json");
                 file << data;
                 command_handler.reply(dpp::message(src.channel_id, "You withdrawn " + to_string(withdrawn) + " coins"), src);
+            }
+        );
+
+        command_handler.add_command(
+            "rob",
+            {
+                {"user", dpp::param_info(dpp::pt_user, false, "user")}
+            },
+            [&command_handler](const string &command, const dpp::parameter_list_t &parameters, dpp::command_source src) {
+                if (getcooldown(src.issuer.id, "rob") > duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()) {
+                    command_handler.reply(dpp::message(src.channel_id, "This command is on cooldown"), src);
+                    return;
+                }
+                dpp::user user;
+                try {
+                    user = get<dpp::resolved_user>(parameters[0].second).user;
+                }
+                catch (...) {
+                    command_handler.reply(dpp::message(src.channel_id, "Invalid argument"), src);
+                    return;
+                }
+                if (user == src.issuer) {
+                    command_handler.reply(dpp::message(src.channel_id, "You can't rob yourself"), src);
+                    return;
+                }
+                ifstream f("./money.json");
+                json data = json::parse(f);
+                if (data[to_string(user.id)][0] < (dword) 500) {
+                    command_handler.reply(dpp::message(src.channel_id, "This user has less than 500 coins"), src);
+                    return;
+                }
+                srand(time(NULL));
+                dword money = (rand() % data[to_string(user.id)][0].get<dword>()) + 1;
+                data[to_string(user.id)][0] = data[to_string(user.id)][0].get<dword>() - money;
+                data[to_string(src.issuer.id)][0] = data[to_string(src.issuer.id)][0].get<dword>() + money;
+                ofstream file("./money.json");
+                file << data;
+                command_handler.reply(dpp::message(src.channel_id, "You stole " + to_string(money) + " coins from " + user.username), src);
+                cooldown(src.issuer.id, "rob", 60000);
             }
         );
         command_handler.register_commands();
